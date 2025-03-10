@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "stm32f10x.h": "c",
+        "countersensor.h": "c",
+        "timer.h": "c",
+        "dma.h": "c",
+        "usart.h": "c",
+        "array": "c",
+        "USART_I2C_SPI_CAN_TEST.C": "cpp"
+    }
+}
