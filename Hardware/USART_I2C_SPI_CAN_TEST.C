@@ -464,10 +464,50 @@ void __I2C_Hardware_ReadReg(uint8_t Reg, uint8_t *data)
  * 无数据段,RTP为隐性1,其余和数据帧相同
  */
 
- /*错误帧 : 设备默认处在被动错误状态,当错误发生时,设备主动发送错误帧6个隐性0,之后发送8bit的错误标识符*/
+ /*错误帧 : 设备默认处在被动错误状态,当错误发生时,设备主动发送错误帧6个隐性0,之后发送8bit的错误标识符(隐性1)*/
 
  /*过载帧 : 接收方处理过载时发送,和错误帧格式相同*/
 
 
 
  /*位填充规则:发送方发送五个相同电平后,自动追加一个相反电平的填充位,接收方检测到填充位时,会自动移除填充位,恢复原始数 */
+
+ /*位同步
+ *位时序: ss+pts+pbs1+pbs2,最小时间单位tq,ss为同步段,pts为传播时间段,pbs1为相位段1,pbs2为相位段2
+ *采样点: pbs1和pbs2之间
+ */
+
+ //stm32内置bxCAN外设,支持CAN2.0A和CAN2.0B协议,可以自动发送CAN报文和按照过滤器自动接收指定CAN报文,程序无需关注总线电平细节
+
+void __CAN_Init()
+{
+    //启动时钟
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_CAN1, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+    //初始化GPIO
+    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    //初始化CAN
+    CAN_InitTypeDef CAN_InitStructure;
+    CAN_StructInit(&CAN_InitStructure);
+    CAN_InitStructure.CAN_TTCM = DISABLE;//时间触发通信模式
+    CAN_InitStructure.CAN_ABOM = DISABLE;//自动总线关闭
+    CAN_InitStructure.CAN_AWUM = DISABLE;//自动唤醒模式
+    CAN_InitStructure.CAN_NART = DISABLE;//禁止报文自动重传
+    CAN_InitStructure.CAN_RFLM = DISABLE;//报文锁定模式
+    CAN_InitStructure.CAN_TXFP = DISABLE;//发送FIFO优先级
+    CAN_InitStructure.CAN_Mode = CAN_Mode_Normal;//CAN模式
+    CAN_InitStructure.CAN_SJW = CAN_SJW_1tq;//重新同步跳跃宽度
+    CAN_InitStructure.CAN_BS1 = CAN_BS1_6tq;//时间段1
+    CAN_InitStructure.CAN_BS2 = CAN_BS2_8tq;//时间段2
+    CAN_InitStructure.CAN_Prescaler = 9;//分频系数
+    CAN_Init(CAN1, &CAN_InitStructure);
+    //初始化过滤器
+}
