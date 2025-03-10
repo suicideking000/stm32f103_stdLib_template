@@ -189,25 +189,6 @@ void DMA1_Channel4_IRQHandler(void)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /*usart中断函数*/
 void USART1_IRQHandler(void)
 {
@@ -478,6 +459,9 @@ void __I2C_Hardware_ReadReg(uint8_t Reg, uint8_t *data)
  */
 
  //stm32内置bxCAN外设,支持CAN2.0A和CAN2.0B协议,可以自动发送CAN报文和按照过滤器自动接收指定CAN报文,程序无需关注总线电平细节
+#define CAN_DEVICE_ID 0x1234;
+
+
 
 void __CAN_Init()
 {
@@ -486,33 +470,149 @@ void __CAN_Init()
     RCC_APB1PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
     //初始化GPIO
     GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11; //CAN_RX
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12; //CAN_TX
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
     //初始化CAN
     CAN_InitTypeDef CAN_InitStructure;
     CAN_StructInit(&CAN_InitStructure);
-    CAN_InitStructure.CAN_TTCM = DISABLE;//时间触发通信模式
+    CAN_InitStructure.CAN_TTCM = DISABLE;//时间触发通信模式 每个FIFO有自己的时间寄存器
     CAN_InitStructure.CAN_ABOM = DISABLE;//自动总线关闭
     CAN_InitStructure.CAN_AWUM = DISABLE;//自动唤醒模式 
 
-    CAN_InitStructure.CAN_NART = DISABLE;//禁止报文自动重传 
-    CAN_InitStructure.CAN_RFLM = DISABLE;//报文锁定模式
+    CAN_InitStructure.CAN_NART = DISABLE;//不自动重传功能      
+    CAN_InitStructure.CAN_RFLM = DISABLE;//报文锁定模式  
     CAN_InitStructure.CAN_TXFP = DISABLE;//发送FIFO优先级
 
     CAN_InitStructure.CAN_Mode = CAN_Mode_Normal;//CAN模式
+    //波特率=1/正常的位时间
+    //正常的位时间=1*tq+tbs1+tbs2
+    //tq=(BRP+1)*APB1时钟周期
     CAN_InitStructure.CAN_SJW = CAN_SJW_1tq;//重新同步跳跃宽度
-    CAN_InitStructure.CAN_BS1 = CAN_BS1_6tq;//时间段1
-    CAN_InitStructure.CAN_BS2 = CAN_BS2_8tq;//时间段2
-    CAN_InitStructure.CAN_Prescaler = 9;//分频系数
-    CAN_Init(CAN1, &CAN_InitStructure);
+    CAN_InitStructure.CAN_BS1 = CAN_BS1_3tq;//时间段1
+    CAN_InitStructure.CAN_BS2 = CAN_BS2_2tq;//时间段2
+    CAN_InitStructure.CAN_Prescaler = 6;//BRP 分频系数(不用-1)
+    CAN_Init(CAN1, &CAN_InitStructure);    
+}
 
-    //初始化过滤器
+void __CAN_FILTER_Init()
+{
     CAN_FilterInitTypeDef CAN_FilterInitStructure;
+    //====32位列表模式=====
+    CAN_FilterInitStructure.CAN_FilterNumber = 0;
+    CAN_FilterInitStructure.CAN_FilterMode = CAN_FilterMode_IdList;
+    CAN_FilterInitStructure.CAN_FilterScale = CAN_FilterScale_32bit;
+    //第一组id
+    CAN_FilterInitStructure.CAN_FilterIdHigh = 0x0000;
+    CAN_FilterInitStructure.CAN_FilterIdLow = 0x0000;
+    //第二组id
+    CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0x0000;
+    CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0x0000;
+
+    CAN_FilterInitStructure.CAN_FilterFIFOAssignment = CAN_Filter_FIFO0;
+    CAN_FilterInitStructure.CAN_FilterActivation = ENABLE;
+    CAN_FilterInit(&CAN_FilterInitStructure);
+
+    //====32位掩码模式====
+    CAN_FilterInitStructure.CAN_FilterNumber = 1;
+    CAN_FilterInitStructure.CAN_FilterMode = CAN_FilterMode_IdMask;
+    CAN_FilterInitStructure.CAN_FilterScale = CAN_FilterScale_32bit;
+
+    //32位id
+    CAN_FilterInitStructure.CAN_FilterIdHigh = 0x0000;
+    CAN_FilterInitStructure.CAN_FilterIdLow = 0x0000;
+    //32位掩码
+    CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0x0000;
+    CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0x0000;
+
+    CAN_FilterInitStructure.CAN_FilterFIFOAssignment = CAN_Filter_FIFO0;
+    CAN_FilterInitStructure.CAN_FilterActivation = ENABLE;
+    CAN_FilterInit(&CAN_FilterInitStructure);
+
+    //16位列表模式
+    //16位掩码模式
+}
+
+void __CAN_CREATE_Message(CanTxMsg *TxMessage, uint32_t StdId, uint32_t ExtId, uint8_t IDE, uint8_t RTR, uint8_t DLC, uint8_t Data[])
+{
+    TxMessage->StdId = StdId;
+    TxMessage->ExtId = ExtId;
+    TxMessage->IDE = IDE;
+    TxMessage->RTR = RTR;
+    TxMessage->DLC = DLC;
+    for(uint8_t i = 0; i < DLC; i++)
+    {
+        TxMessage->Data[i] = Data[i];
+    }
+}
+
+void __CAN_Transmit(CanTxMsg *TxMessage)
+{
+    uint8_t transmit_mailbox = 0;
+    uint32_t timeout = 0;
     
+    transmit_mailbox = CAN_Transmit(CAN1, TxMessage);
+
+    //判断发送是否成功
+    while(CAN_TransmitStatus(CAN1, transmit_mailbox) == CAN_TxStatus_Failed)
+    {
+        timeout++;
+        if(timeout > 0x1FFFFFF)
+        {
+            break;
+        }
+    }
+}
+
+uint8_t __CAN_ReceiveFlag(void)
+{   
+    if(CAN_MessagePending(CAN1, CAN_FIFO0)>0)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+void __CAN_Receive(CanRxMsg *RxMessage)
+{
+    if(__CAN_ReceiveFlag())
+    {
+        CAN_Receive(CAN1, CAN_FIFO0, RxMessage);
+    }
+}
+ 
+//处理接收到的数据
+void __CAN_ReceiveMessage_process(CanRxMsg *RxMessage, uint8_t *id, uint8_t*len, uint8_t *data)
+{
+//是否扩展帧
+    if(RxMessage->IDE == CAN_Id_Extended)
+    {
+        *id = RxMessage->ExtId;
+    }
+    else
+    {
+        *id = RxMessage->StdId;
+    }
+//是否数据帧
+    if(RxMessage->RTR == CAN_RTR_Data)
+    {
+        *len = RxMessage->DLC;
+        for(uint8_t i = 0; i < *len; i++)
+        {
+            data[i] = RxMessage->Data[i];
+        }
+    }
+    else
+    {
+        *len = 0;
+    }
+
 }
