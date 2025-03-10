@@ -510,4 +510,5 @@ void __CAN_Init()
     CAN_InitStructure.CAN_Prescaler = 9;//分频系数
     CAN_Init(CAN1, &CAN_InitStructure);
     //初始化过滤器
+    11
 }
