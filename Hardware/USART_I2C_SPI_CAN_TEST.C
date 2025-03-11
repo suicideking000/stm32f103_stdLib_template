@@ -538,6 +538,19 @@ void __CAN_FILTER_Init()
     //16位掩码模式
 }
 
+void __CAN_NVIC_Init()
+{
+    NVIC_InitTypeDef NVIC_InitStructure;
+    NVIC_InitStructure.NVIC_IRQChannel = USB_LP_CAN1_RX0_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 5;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+    CAN_ITConfig(CAN1, CAN_IT_FMP0, ENABLE);
+
+}
+
+//=================================发送接收函数===================================
 void __CAN_CREATE_Message(CanTxMsg *TxMessage, uint32_t StdId, uint32_t ExtId, uint8_t IDE, uint8_t RTR, uint8_t DLC, uint8_t Data[])
 {
     TxMessage->StdId = StdId;
@@ -616,3 +629,4 @@ void __CAN_ReceiveMessage_process(CanRxMsg *RxMessage, uint8_t *id, uint8_t*len,
     }
 
 }
+//=================================发送接收函数===================================
