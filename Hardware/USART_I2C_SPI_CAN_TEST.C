@@ -435,7 +435,7 @@ void __I2C_Hardware_ReadReg(uint8_t Reg, uint8_t *data)
 /*===============================================CAN=========================================================*/
 
 /*数据帧 : 发送设备主动发送数据,接收设备被动接收数据
- * 1bit的SOF(帧起始)→发送隐性1
+ * 1bit的SOF(帧起始)→发送显性0
  * ↓         ↓             ↓
  * 11bit的ID(报文)→发送ID                                     
  * ↓         ↓             ↓                                    
@@ -499,16 +499,20 @@ void __CAN_Init()
     CAN_StructInit(&CAN_InitStructure);
     CAN_InitStructure.CAN_TTCM = DISABLE;//时间触发通信模式
     CAN_InitStructure.CAN_ABOM = DISABLE;//自动总线关闭
-    CAN_InitStructure.CAN_AWUM = DISABLE;//自动唤醒模式
-    CAN_InitStructure.CAN_NART = DISABLE;//禁止报文自动重传
+    CAN_InitStructure.CAN_AWUM = DISABLE;//自动唤醒模式 
+
+    CAN_InitStructure.CAN_NART = DISABLE;//禁止报文自动重传 
     CAN_InitStructure.CAN_RFLM = DISABLE;//报文锁定模式
     CAN_InitStructure.CAN_TXFP = DISABLE;//发送FIFO优先级
+
     CAN_InitStructure.CAN_Mode = CAN_Mode_Normal;//CAN模式
     CAN_InitStructure.CAN_SJW = CAN_SJW_1tq;//重新同步跳跃宽度
     CAN_InitStructure.CAN_BS1 = CAN_BS1_6tq;//时间段1
     CAN_InitStructure.CAN_BS2 = CAN_BS2_8tq;//时间段2
     CAN_InitStructure.CAN_Prescaler = 9;//分频系数
     CAN_Init(CAN1, &CAN_InitStructure);
+
     //初始化过滤器
-    11
+    CAN_FilterInitTypeDef CAN_FilterInitStructure;
+    
 }
